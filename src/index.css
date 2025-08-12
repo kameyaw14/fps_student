@@ -1,0 +1,9 @@
+@font-face {
+    font-family: montserrat;
+    src: url("./fonts/Montserrat-Regular.ttf");
+}
+@import "tailwindcss";
+
+@theme{
+    --font-montserrat: montserrat, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
