@@ -1,21 +1,31 @@
-
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useStudentAppContext } from "./context/StudentAppContext";
 import StudentLogin from "./pages/StudentLogin";
 import StudentDashboard from "./pages/StudentDashboard";
 import StudentFeeAssignments from "./pages/StudentFeeAssignments";
 import StudentFeeAssignmentDetails from "./pages/StudentFeeAssignmentDetails";
-
-import { useStudentAppContext } from "./context/StudentAppContext";
-import COLORS from "./constants/colors";
 import StudentMainLayout from "./components/StudentMainLayout";
 import NotFound from "./pages/NotFound";
+import LoadingScreen from "./components/LoadingScreen";
+import COLORS from "./constants/colors";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useStudentAppContext();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  const location = useLocation();
+  return isAuthenticated ? (
+    <>{children}</>
+  ) : (
+    <Navigate to="/login" state={{ from: location.pathname }} replace />
+  );
 }
 
 function App() {
+  const { loading } = useStudentAppContext();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
   return (
     <div style={{ backgroundColor: COLORS.background }}>
       <Routes>
