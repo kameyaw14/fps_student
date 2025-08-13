@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { DocumentTextIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
@@ -47,7 +47,7 @@ const getDaysRemaining = (dueDate: string): string => {
 };
 
 function StudentFeeAssignments() {
-  const { user, isAuthenticated,CURRENCY } = useStudentAppContext();
+  const { user, isAuthenticated, CURRENCY, paymentInitiated, setPaymentInitiated } = useStudentAppContext();
   const navigate = useNavigate();
   const [feeAssignments, setFeeAssignments] = useState<FeeAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +57,7 @@ function StudentFeeAssignments() {
     status: '',
   });
 
+  // CHANGE: Polling logic for fee assignments
   const fetchFeeAssignments = async () => {
     setIsLoading(true);
     setError(null);
@@ -67,105 +68,124 @@ function StudentFeeAssignments() {
         params: filters,
       });
       setFeeAssignments(response.data.feeAssignments);
+      // CHANGE: Reset paymentInitiated after successful fetch
+      if (paymentInitiated) {
+        setPaymentInitiated(false);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load fee assignments');
-      // toast.error(err.response?.data?.message || 'Failed to load fee assignments');
-      if (err.response?.status === 401) navigate('/login');
+      toast.error(err.response?.data?.message || 'Failed to load fee assignments');
+      if (err.response?.status === 401) {
+        navigate('/login');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  // CHANGE: Polling when paymentInitiated is true
   useEffect(() => {
-    if (!isAuthenticated || !user?._id) {
-      navigate('/login');
-    } else {
-      fetchFeeAssignments();
+    fetchFeeAssignments();
+    let pollingInterval: NodeJS.Timeout;
+    if (paymentInitiated) {
+      pollingInterval = setInterval(() => {
+        fetchFeeAssignments();
+      }, 5000); // Poll every 5 seconds
+      // Stop polling after 30 seconds
+      setTimeout(() => {
+        clearInterval(pollingInterval);
+        setPaymentInitiated(false);
+      }, 30000);
     }
-  }, [isAuthenticated, user, filters, navigate]);
+    return () => clearInterval(pollingInterval);
+  }, [paymentInitiated, filters]);
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
+  // CHANGE: Trigger payment and set paymentInitiated
+  const handlePayNow = async (feeId: string, amountDue: number) => {
+    try {
+      const accessToken = localStorage.getItem('studentToken');
+      const response = await axios.post(
+        `${env.VITE_SERVER_URL}/api/v1/payment/initialize`,
+        { feeId, amount: amountDue },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      setPaymentInitiated(true); // Set to trigger polling
+      window.location.href = response.data.paymentUrl; // Redirect to Paystack
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to initialize payment');
+    }
   };
 
-  const statusColors: { [key: string]: string } = {
-    assigned: '#eab308',
-    partially_paid: '#f59e0b',
-    fully_paid: '#22c55e',
-    overdue: '#ef4444',
+  const statusColors = {
+    assigned: '#1976D2', // COLORS.primary
+    partially_paid: '#0288D1',
+    fully_paid: '#2e7d32',
+    overdue: '#dc2626',
   };
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
-    <div style={{ backgroundColor: COLORS.background }} className="min-h-screen py-12 px-4">
+    <div style={{ backgroundColor: COLORS.background }} className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
-        <h2 style={{ color: COLORS.primary }} className="text-3xl font-bold mb-8 text-center">
-          My Fee Assignments
-        </h2>
-
-        {feeAssignments.some((a) => a.status === 'overdue') && (
-          <div style={{ backgroundColor: '#fef2f2', borderColor: '#f87171' }} className="mb-6 p-4 rounded-md border flex items-center">
-            <ExclamationCircleIcon className="h-6 w-6 text-red-500 mr-2" />
-            <p style={{ color: '#dc2626' }}>
-              You have overdue fees. Please pay promptly to avoid penalties.
-            </p>
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-6 text-center">
-            <p style={{ color: '#dc2626' }} className="mb-2">{error}</p>
+        <h1 style={{ color: COLORS.textPrimary }} className="text-2xl font-bold mb-6">
+          Your Fee Assignments
+        </h1>
+        <div className="mb-6">
+          <div className="flex space-x-4">
+            <input
+              type="text"
+              placeholder="Filter by fee type"
+              style={{ backgroundColor: COLORS.inputBackground, borderColor: COLORS.border, color: COLORS.textPrimary }}
+              className="p-2 rounded-md border focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={filters.feeType}
+              onChange={(e) => setFilters({ ...filters, feeType: e.target.value })}
+            />
+            <select
+              style={{ backgroundColor: COLORS.inputBackground, borderColor: COLORS.border, color: COLORS.textPrimary }}
+              className="p-2 rounded-md border focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            >
+              <option value="">All Statuses</option>
+              <option value="assigned">Assigned</option>
+              <option value="partially_paid">Partially Paid</option>
+              <option value="fully_paid">Fully Paid</option>
+              <option value="overdue">Overdue</option>
+            </select>
             <button
               onClick={fetchFeeAssignments}
               style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-              className="px-4 py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${COLORS.primary}]"
-              aria-label="Retry loading fee assignments"
+              className="px-4 py-2 rounded-md hover:bg-blue-800"
             >
-              Retry
+              Apply Filters
             </button>
           </div>
-        )}
-
-        <div className="mb-6 flex flex-wrap gap-4">
-          <input
-            type="text"
-            name="feeType"
-            placeholder="Filter by Fee Type"
-            value={filters.feeType}
-            onChange={handleFilterChange}
-            style={{ backgroundColor: COLORS.inputBackground, borderColor: COLORS.border }}
-            className="px-4 py-2 rounded-md"
-          />
-          <select
-            name="status"
-            value={filters.status}
-            onChange={handleFilterChange}
-            style={{ backgroundColor: COLORS.inputBackground, borderColor: COLORS.border }}
-            className="px-4 py-2 rounded-md"
-          >
-            <option value="">All Statuses</option>
-            <option value="assigned">Assigned</option>
-            <option value="partially_paid">Partially Paid</option>
-            <option value="fully_paid">Fully Paid</option>
-            <option value="overdue">Overdue</option>
-          </select>
         </div>
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array(6).fill(0).map((_, i) => (
-              <FeeAssignmentSkeleton key={i} />
-            ))}
+        {error && (
+          <div style={{ backgroundColor: '#fee2e2', borderColor: '#dc2626' }} className="p-4 mb-6 rounded-md border flex items-center">
+            <ExclamationCircleIcon className="h-6 w-6 text-red-600 mr-2" />
+            <p style={{ color: '#dc2626' }}>{error}</p>
           </div>
-        ) : feeAssignments.length ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        )}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <FeeAssignmentSkeleton />
+            <FeeAssignmentSkeleton />
+            <FeeAssignmentSkeleton />
+          </div>
+        ) : feeAssignments.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {feeAssignments.map((assignment) => (
               <div
                 key={assignment._id}
-                style={{ backgroundColor: COLORS.white, borderColor: COLORS.border }}
-                className="p-6 rounded-lg shadow-md border hover:shadow-lg transition-transform"
+                style={{ backgroundColor: COLORS.cardBackground, borderColor: COLORS.border }}
+                className="p-6 rounded-lg shadow-md border"
               >
                 <div className="flex items-center mb-2">
-                  <DocumentTextIcon className="h-6 w-6 mr-2" style={{ color: COLORS.primary }} />
+                  <DocumentTextIcon className="h-5 w-5 mr-2" style={{ color: COLORS.primary }} />
                   <p style={{ color: COLORS.textPrimary }} className="font-semibold">
                     {assignment.feeId.feeType}
                   </p>
@@ -206,7 +226,7 @@ function StudentFeeAssignments() {
                   </button>
                   {(assignment.status === 'assigned' || assignment.status === 'partially_paid') && (
                     <button
-                      onClick={() => navigate('/payments')}
+                      onClick={() => handlePayNow(assignment.feeId._id, assignment.amountDue)}
                       style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
                       className="px-3 py-1 rounded-md hover:bg-blue-800"
                       aria-label={`Pay for ${assignment.feeId.feeType}`}

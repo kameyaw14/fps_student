@@ -23,6 +23,8 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  paymentInitiated: boolean; // CHANGE: Added to track payment initiation
+  setPaymentInitiated: (value: boolean) => void; // CHANGE: Setter for paymentInitiated
 }
 
 const StudentAppContext = createContext<AppContextType | undefined>(undefined);
@@ -38,7 +40,8 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true); // Initialize as true
+  const [loading, setLoading] = useState(true); 
+  const [paymentInitiated, setPaymentInitiated] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -206,6 +209,9 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
     login,
     logout,
     checkAuth,
+    CURRENCY,
+    paymentInitiated,
+    setPaymentInitiated
   };
 
   return <StudentAppContext.Provider value={value}>{children}</StudentAppContext.Provider>;

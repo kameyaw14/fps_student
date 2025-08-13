@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { DocumentTextIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { useStudentAppContext } from '../context/StudentAppContext';
 import { env } from '../env';
 import COLORS from '../constants/colors';
@@ -48,12 +48,13 @@ const getDaysRemaining = (dueDate: string): string => {
 
 function StudentFeeAssignmentDetails() {
   const { id } = useParams();
-  const { isAuthenticated, user,CURRENCY } = useStudentAppContext();
+  const { isAuthenticated, user, CURRENCY, paymentInitiated, setPaymentInitiated } = useStudentAppContext();
   const navigate = useNavigate();
   const [feeAssignment, setFeeAssignment] = useState<FeeAssignment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // CHANGE: Polling logic for fee assignment
   const fetchFeeAssignment = async () => {
     setIsLoading(true);
     setError(null);
@@ -63,51 +64,80 @@ function StudentFeeAssignmentDetails() {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       setFeeAssignment(response.data.feeAssignments[0]);
+      // CHANGE: Reset paymentInitiated after successful fetch
+      if (paymentInitiated) {
+        setPaymentInitiated(false);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load fee assignment');
       toast.error(err.response?.data?.message || 'Failed to load fee assignment');
-      if (err.response?.status === 401) navigate('/login');
+      if (err.response?.status === 401) {
+        navigate('/login');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  // CHANGE: Polling when paymentInitiated is true
   useEffect(() => {
-    if (!isAuthenticated || !user?._id) {
-      navigate('/login');
-    } else {
-      fetchFeeAssignment();
+    fetchFeeAssignment();
+    let pollingInterval: NodeJS.Timeout;
+    if (paymentInitiated) {
+      pollingInterval = setInterval(() => {
+        fetchFeeAssignment();
+      }, 5000); // Poll every 5 seconds
+      // Stop polling after 30 seconds
+      setTimeout(() => {
+        clearInterval(pollingInterval);
+        setPaymentInitiated(false);
+      }, 30000);
     }
-  }, [isAuthenticated, user, id, navigate]);
+    return () => clearInterval(pollingInterval);
+  }, [id, paymentInitiated]);
 
-  const statusColors: { [key: string]: string } = {
-    assigned: '#eab308',
-    partially_paid: '#f59e0b',
-    fully_paid: '#22c55e',
-    overdue: '#ef4444',
+  // CHANGE: Trigger payment and set paymentInitiated
+  const handlePayNow = async () => {
+    if (!feeAssignment) return;
+    try {
+      const accessToken = localStorage.getItem('studentToken');
+      const response = await axios.post(
+        `${env.VITE_SERVER_URL}/api/v1/payment/initialize`,
+        { feeId: feeAssignment.feeId._id, amount: feeAssignment.amountDue },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      setPaymentInitiated(true); // Set to trigger polling
+      window.location.href = response.data.paymentUrl; // Redirect to Paystack
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to initialize payment');
+    }
   };
 
-  return (
-    <div style={{ backgroundColor: COLORS.background }} className="min-h-screen py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <h2 style={{ color: COLORS.primary }} className="text-3xl font-bold mb-8 text-center">
-          Fee Assignment Details
-        </h2>
+  const statusColors = {
+    assigned: '#1976D2', // COLORS.primary
+    partially_paid: '#0288D1',
+    fully_paid: '#2e7d32',
+    overdue: '#dc2626',
+  };
 
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <div style={{ backgroundColor: COLORS.background }} className="min-h-screen p-6">
+      <div className="max-w-7xl mx-auto">
+        <h1 style={{ color: COLORS.textPrimary }} className="text-2xl font-bold mb-6">
+          Fee Assignment Details
+        </h1>
+        {error && (
+          <div style={{ backgroundColor: '#fee2e2', borderColor: '#dc2626' }} className="p-4 mb-6 rounded-md border flex items-center">
+            <ExclamationCircleIcon className="h-6 w-6 text-red-600 mr-2" />
+            <p style={{ color: '#dc2626' }}>{error}</p>
+          </div>
+        )}
         {isLoading ? (
           <FeeAssignmentDetailsSkeleton />
-        ) : error ? (
-          <div className="text-center">
-            <p style={{ color: '#dc2626' }} className="mb-2">{error}</p>
-            <button
-              onClick={fetchFeeAssignment}
-              style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-              className="px-4 py-2 rounded-md hover:bg-blue-800"
-              aria-label="Retry loading fee assignment"
-            >
-              Retry
-            </button>
-          </div>
         ) : feeAssignment ? (
           <div style={{ backgroundColor: COLORS.cardBackground, borderColor: COLORS.border }} className="p-6 rounded-lg shadow-md border">
             <div className="flex items-center mb-4">
@@ -149,7 +179,7 @@ function StudentFeeAssignmentDetails() {
             </p>
             {(feeAssignment.status === 'assigned' || feeAssignment.status === 'partially_paid') && (
               <button
-                onClick={() => navigate('/payments')}
+                onClick={handlePayNow}
                 style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
                 className="mt-4 px-4 py-2 rounded-md hover:bg-blue-800"
                 aria-label={`Pay for ${feeAssignment.feeId.feeType}`}
