@@ -1,4 +1,3 @@
-//// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
@@ -41,6 +40,7 @@ const StudentSidebar: React.FC<SidebarProps> = ({ onLogout }) => {
 
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: HomeIcon },
+   { name: 'Fee Assignments', path: '/fee-assignments', icon: DocumentTextIcon },
     { path: '/payments', label: 'Payments', icon: CurrencyDollarIcon },
     { path: '/receipts', label: 'Receipts', icon: DocumentTextIcon },
     { path: '/refunds', label: 'Refunds', icon: ArrowPathIcon },

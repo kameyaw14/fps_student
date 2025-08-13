@@ -1,10 +1,14 @@
-//// @ts-nocheck
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { useStudentAppContext } from './context/StudentAppContext';
-import StudentLogin from './pages/StudentLogin';
-import StudentDashboard from './pages/StudentDashboard';
-import StudentMainLayout from './components/StudentMainLayout';
-import COLORS from './constants/colors';
+
+import { Routes, Route, Navigate } from "react-router-dom";
+import StudentLogin from "./pages/StudentLogin";
+import StudentDashboard from "./pages/StudentDashboard";
+import StudentFeeAssignments from "./pages/StudentFeeAssignments";
+import StudentFeeAssignmentDetails from "./pages/StudentFeeAssignmentDetails";
+
+import { useStudentAppContext } from "./context/StudentAppContext";
+import COLORS from "./constants/colors";
+import StudentMainLayout from "./components/StudentMainLayout";
+import NotFound from "./pages/NotFound";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useStudentAppContext();
@@ -13,10 +17,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <div style={{ backgroundColor: COLORS.background }} className="font-montserrat">
+    <div style={{ backgroundColor: COLORS.background }}>
       <Routes>
         <Route path="/login" element={<StudentLogin />} />
-        <Route path="/login-failed" element={<div>Too many login attempts. Please try again later.</div>} />
         <Route
           path="/dashboard"
           element={
@@ -28,41 +31,31 @@ function App() {
           }
         />
         <Route
+          path="/fee-assignments"
+          element={
+            <ProtectedRoute>
+              <StudentMainLayout>
+                <StudentFeeAssignments />
+              </StudentMainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/fee-assignments/:id"
+          element={
+            <ProtectedRoute>
+              <StudentMainLayout>
+                <StudentFeeAssignmentDetails />
+              </StudentMainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/payments"
           element={
             <ProtectedRoute>
               <StudentMainLayout>
-                <div>Payments Page (Coming Soon)</div>
-              </StudentMainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/receipts"
-          element={
-            <ProtectedRoute>
-              <StudentMainLayout>
-                <div>Receipts Page (Coming Soon)</div>
-              </StudentMainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/refunds"
-          element={
-            <ProtectedRoute>
-              <StudentMainLayout>
-                <div>Refunds Page (Coming Soon)</div>
-              </StudentMainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <StudentMainLayout>
-                <div>Profile Page (Coming Soon)</div>
+                <NotFound />
               </StudentMainLayout>
             </ProtectedRoute>
           }
@@ -72,12 +65,22 @@ function App() {
           element={
             <ProtectedRoute>
               <StudentMainLayout>
-                <div>Courses Page (Coming Soon)</div>
+                <NotFound />
               </StudentMainLayout>
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<div>Not Found</div>} />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <StudentMainLayout>
+                <NotFound />
+              </StudentMainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<NotFound />} />
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </div>

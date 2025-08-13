@@ -29,6 +29,7 @@ const StudentAppContext = createContext<AppContextType | undefined>(undefined);
 
 export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
   const BASE_URL = `${env.VITE_SERVER_URL}/api/v1`;
+  const CURRENCY = 'GH₵'
 
   const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('studentUser');
@@ -198,7 +199,8 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
     logout,
     checkAuth,
     setUser,
-    setIsAuthenticated
+    setIsAuthenticated,
+    CURRENCY,
   };
 
   return <StudentAppContext.Provider value={value}>{children}</StudentAppContext.Provider>;
