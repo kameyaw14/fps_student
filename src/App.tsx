@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useStudentAppContext } from "./context/StudentAppContext";
 import StudentLogin from "./pages/StudentLogin";

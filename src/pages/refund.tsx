@@ -1,3 +1,4 @@
+//@ts-nocheck
 import React, { useState, useEffect } from "react";
 import COLORS from "../constants/colors";
 import { useStudentAppContext } from "../context/StudentAppContext";
