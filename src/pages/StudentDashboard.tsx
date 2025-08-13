@@ -1,4 +1,4 @@
-
+//// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -9,14 +9,13 @@ import {
   UserIcon,
   CurrencyDollarIcon,
   DocumentTextIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ExclamationCircleIcon,
+  BellIcon,
 } from '@heroicons/react/24/outline';
 import { useStudentAppContext } from '../context/StudentAppContext';
 import { env } from '../env';
-import COLORS from '../constants/colors';
 import SkeletonLoader from '../components/SkeletonLoader';
+import COLORS from '../constants/colors';
+import { ChartPieIcon } from 'lucide-react';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -32,43 +31,36 @@ interface StudentData {
 
 interface Payment {
   _id: string;
-  fee: { _id: string; feeType: string; academicSession: string; dueDate: string };
   amount: number;
+  feeId: string;
+  feeDetails: {
+    feeType: string;
+    academicSession: string;
+    dueDate: string;
+  };
   paymentProvider: string;
   status: string;
   receiptUrl?: string;
   createdAt: string;
 }
 
-interface FeeAssignment {
+interface Receipt {
   _id: string;
-  feeId: { feeType: string; amount: number; dueDate: string; academicSession: string };
-  status: string;
-  amountDue: number;
-  amountPaid: number;
+  receiptNumber: string;
+  amount: number;
+  date: string;
+  pdfUrl: string;
+  branding: { logoUrl?: string; primaryColor?: string };
 }
 
 interface DashboardData {
   student: StudentData;
   payments: Payment[];
-  feeAssignments: FeeAssignment[];
-  reports: {
-    totalPayments: number;
-    pendingPayments: number;
-    confirmedPayments: number;
-    overdueFees: number;
-  };
+  receipts: Receipt[];
+  message?: string;
 }
 
-const StudentDashboardSkeleton = () => (
-  <div style={{ backgroundColor: COLORS.cardBackground, borderColor: COLORS.border }} className="p-6 rounded-lg shadow-md border animate-pulse">
-    <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-    <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-    <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
-    <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-  </div>
-);
+const isValidHexColor = (color: string) => /^#[0-9A-F]{6}$/i.test(color);
 
 function StudentDashboard() {
   const { user, isAuthenticated, logout } = useStudentAppContext();
@@ -88,9 +80,16 @@ function StudentDashboard() {
       });
       setDashboardData(response.data.data);
     } catch (err) {
+      console.log({
+        event: 'student_dashboard_fetch_error',
+        error: err.response?.data?.message || err.message,
+        timestamp: new Date().toISOString(),
+      });
       setError(err.response?.data?.message || 'Failed to load dashboard data');
-      toast.error(err.response?.data?.message || 'Failed to load dashboard data');
       if (err.response?.status === 401) navigate('/login');
+      else if (err.response?.status === 429) {
+        toast.error(err.response?.data?.message || 'Rate exceeded. Please try again after some time');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -104,11 +103,20 @@ function StudentDashboard() {
     }
   }, [isAuthenticated, user, navigate]);
 
+  useEffect(() => {
+    return () => setIsModalOpen(false); // Reset modal on unmount
+  }, []);
+
   const handleLogout = async () => {
     try {
       await logout();
       setIsModalOpen(false);
-    } catch (err) {
+    } catch (error) {
+      console.log({
+        event: 'student_logout_error',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
       toast.error('Logout failed');
     }
   };
@@ -122,56 +130,79 @@ function StudentDashboard() {
     setIsModalOpen(false);
   };
 
+  const handleActionClick = () => {
+    toast.info('Feature coming soon');
+  };
+
   const paymentStatusData = {
-    labels: ['Pending', 'Confirmed'],
+    labels: ['Pending', 'Confirmed', 'Rejected', 'Total Amount ($)' ],
     datasets: [
       {
         data: [
-          dashboardData?.reports?.pendingPayments || 0,
-          dashboardData?.reports?.confirmedPayments || 0,
+          dashboardData?.payments.filter((p) => p.status === 'pending').length || 0,
+          dashboardData?.payments.filter((p) => p.status === 'confirmed').length || 0,
+          dashboardData?.payments.filter((p) => p.status === 'rejected').length || 0,
+          dashboardData?.payments.reduce((sum, p) => sum + p.amount, 0) || 0,
         ],
-        backgroundColor: ['#eab308', '#22c55e'],
-        borderColor: ['#ca8a04', '#16a34a'],
+        backgroundColor: ['#eab308', '#22c55e', '#ef4444', '#3b82f6'],
+        borderColor: ['#ca8a04', '#16a34a', '#dc2626', '#2563eb'],
         borderWidth: 1,
       },
     ],
   };
 
-  const statusColors: { [key: string]: string } = {
-    assigned: '#eab308',
-    partially_paid: '#f59e0b',
-    fully_paid: '#22c55e',
-    overdue: '#ef4444',
-  };
+  const primaryColor = isValidHexColor(dashboardData?.receipts[0]?.branding.primaryColor || '')
+    ? dashboardData?.receipts[0]?.branding.primaryColor
+    : COLORS.primary;
+
+  if (isLoading && !dashboardData) {
+    return (
+      <div style={{ backgroundColor: COLORS.background }} className="min-h-screen flex items-center justify-center py-12">
+        <div style={{ backgroundColor: COLORS.white }} className="p-8 rounded-lg shadow-xl w-full max-w-4xl">
+          <h2 style={{ color: COLORS.primary }} className="text-3xl font-bold mb-6 text-center">
+            Loading...
+          </h2>
+          <SkeletonLoader />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ backgroundColor: COLORS.background }} className="min-h-screen py-12 px-4">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto relative">
+        <button
+          onClick={handleActionClick}
+          className="absolute top-0 right-0 p-2 rounded-full hover:bg-gray-200"
+          style={{ color: COLORS.primary }}
+          aria-label="View notifications"
+        >
+          <BellIcon className="h-6 w-6" />
+        </button>
         <h2 style={{ color: COLORS.primary }} className="text-3xl font-bold mb-8 text-center">
           FPS Student Dashboard - {dashboardData?.student.name || user?.name || 'Student'}
         </h2>
 
-        {dashboardData?.reports?.overdueFees > 0 && (
-          <div style={{ backgroundColor: '#fef2f2', borderColor: '#f87171' }} className="mb-6 p-4 rounded-md border flex items-center">
-            <ExclamationCircleIcon className="h-6 w-6 text-red-500 mr-2" />
-            <p style={{ color: '#dc2626' }}>
-              You have {dashboardData?.reports?.overdueFees} overdue fee{dashboardData?.reports?.overdueFees > 1 ? 's' : ''}. Please pay promptly.
-            </p>
-          </div>
-        )}
-
         {error && (
           <div className="mb-6 text-center">
-            <p style={{ color: '#dc2626' }} className="mb-2">{error}</p>
+            <p style={{ color: '#dc2626' }} className="mb-2">
+              {error}
+            </p>
             <button
               onClick={fetchDashboardData}
               style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-              className="px-4 py-2 rounded-md hover:bg-blue-800"
+              className="px-4 py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${primaryColor}]"
               aria-label="Retry loading dashboard data"
             >
               Retry
             </button>
           </div>
+        )}
+
+        {dashboardData?.message && (
+          <p style={{ color: COLORS.textSecondary }} className="text-center mb-6">
+            {dashboardData.message}
+          </p>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -181,16 +212,62 @@ function StudentDashboard() {
               Student Information
             </h3>
             <div className="grid grid-cols-1 gap-4">
-              <p style={{ color: COLORS.textPrimary }}><strong>Name:</strong> {dashboardData?.student.name || 'N/A'}</p>
-              <p style={{ color: COLORS.textPrimary }}><strong>Email:</strong> {dashboardData?.student.email || 'N/A'}</p>
-              <p style={{ color: COLORS.textPrimary }}><strong>Student ID:</strong> {dashboardData?.student.studentId || 'N/A'}</p>
-              <p style={{ color: COLORS.textPrimary }}><strong>Department:</strong> {dashboardData?.student.department || 'N/A'}</p>
-              <p style={{ color: COLORS.textPrimary }}><strong>Year of Study:</strong> {dashboardData?.student.yearOfStudy || 'N/A'}</p>
-              <p style={{ color: COLORS.textPrimary }}><strong>Courses:</strong> {dashboardData?.student.courses.join(', ') || 'None'}</p>
+              <p>
+                <strong>Name:</strong> {dashboardData?.student.name || 'N/A'}
+              </p>
+              <p>
+                <strong>Email:</strong> {dashboardData?.student.email || 'N/A'}
+              </p>
+              <p>
+                <strong>Student ID:</strong> {dashboardData?.student.studentId || 'N/A'}
+              </p>
+              <p>
+                <strong>Department:</strong> {dashboardData?.student.department || 'N/A'}
+              </p>
+              <p>
+                <strong>Year of Study:</strong> {dashboardData?.student.yearOfStudy || 'N/A'}
+              </p>
+              <p className="relative">
+                <strong>Courses:</strong>{' '}
+                <span className="truncate">{dashboardData?.student.courses.join(', ') || 'None'}</span>
+                <span
+                  style={{ backgroundColor: COLORS.white }}
+                  className="absolute left-0 top-6 hidden group-hover:block shadow-md p-2 rounded-md z-50 max-w-full"
+                >
+                  {dashboardData?.student.courses.join(', ') || 'None'}
+                </span>
+              </p>
+              <button
+                onClick={() => navigate('/courses')}
+                style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
+                className="mt-2 px-3 py-1 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${primaryColor}]"
+                aria-label="View courses"
+              >
+                View Courses
+              </button>
             </div>
           </div>
 
-          <div style={{ backgroundColor: COLORS.cardBackground, borderColor: COLORS.border }} className="p-6 rounded-lg shadow-md border sm:col-span-2">
+          <div
+            style={{ backgroundColor: COLORS.cardBackground, borderColor: COLORS.border }}
+            className="p-6 rounded-lg shadow-md border sm:col-span-2 lg:col-span-2"
+          >
+            <h3 style={{ color: COLORS.primary }} className="text-xl font-semibold mb-4 flex items-center">
+              <ChartPieIcon className="h-6 w-6 mr-2" />
+              Payment Overview
+            </h3>
+            <div className="mt-6 h-64">
+              <Pie
+                data={paymentStatusData}
+                options={{
+                  responsive: true,
+                  plugins: { legend: { position: 'top' }, tooltip: { enabled: true } },
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: COLORS.cardBackground, borderColor: COLORS.border }} className="p-6 rounded-lg shadow-md border">
             <h3 style={{ color: COLORS.primary }} className="text-xl font-semibold mb-4 flex items-center">
               <CurrencyDollarIcon className="h-6 w-6 mr-2" />
               Payments
@@ -201,14 +278,34 @@ function StudentDashboard() {
                   <div
                     key={payment._id}
                     style={{ backgroundColor: COLORS.white }}
-                    className="p-4 rounded-md shadow-sm hover:shadow-lg transition-transform"
+                    className="p-4 rounded-md shadow-sm hover:shadow-lg transition-transform group"
                   >
-                    <p style={{ color: COLORS.textPrimary }} className="font-semibold">{payment.fee.feeType}</p>
+                    <p style={{ color: COLORS.textPrimary }} className="relative">
+                      <span className="truncate">{payment.feeDetails.feeType}</span>
+                      <span
+                        style={{ backgroundColor: COLORS.white }}
+                        className="absolute left-0 top-0 hidden group-hover:block shadow-md p-2 rounded-md z-50 max-w-full"
+                      >
+                        {payment.feeDetails.feeType}
+                      </span>
+                    </p>
                     <p style={{ color: COLORS.textPrimary }}>${payment.amount}</p>
-                    <p style={{ color: COLORS.textSecondary }} className="text-sm">{payment.paymentProvider}</p>
+                    <p style={{ color: COLORS.textSecondary }} className="text-sm">
+                      {payment.feeDetails.academicSession}
+                    </p>
+                    <p style={{ color: COLORS.textSecondary }} className="text-sm">
+                      Due: {new Date(payment.feeDetails.dueDate).toLocaleDateString()}
+                    </p>
+                    <p style={{ color: COLORS.textSecondary }} className="text-sm">
+                      {payment.paymentProvider}
+                    </p>
                     <p
                       className={`text-sm ${
-                        payment.status === 'confirmed' ? 'text-green-500' : 'text-yellow-500'
+                        payment.status === 'confirmed'
+                          ? 'text-green-500'
+                          : payment.status === 'pending'
+                          ? 'text-yellow-500'
+                          : 'text-red-500'
                       }`}
                     >
                       {payment.status}
@@ -219,21 +316,23 @@ function StudentDashboard() {
                           href={payment.receiptUrl}
                           target="_blank"
                           style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                          className="px-3 py-1 rounded-md hover:bg-blue-800"
-                          aria-label={`View receipt for ${payment.fee.feeType}`}
+                          className="px-3 py-1 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${primaryColor}]"
+                          aria-label={`View receipt for payment ${payment.feeDetails.feeType}`}
                         >
                           View Receipt
                         </a>
                       )}
                       <button
-                        onClick={() => toast.info('Refund feature coming soon')}
+                        onClick={() => navigate('/refunds')}
                         style={{
                           backgroundColor: payment.status === 'confirmed' ? COLORS.primary : '#9ca3af',
                           color: COLORS.white,
                         }}
-                        className={`px-3 py-1 rounded-md ${payment.status === 'confirmed' ? 'hover:bg-blue-800' : 'cursor-not-allowed'}`}
+                        className={`px-3 py-1 rounded-md ${
+                          payment.status === 'confirmed' ? 'hover:bg-blue-800' : 'cursor-not-allowed'
+                        }`}
                         disabled={payment.status !== 'confirmed'}
-                        aria-label={`Initiate refund for ${payment.fee.feeType}`}
+                        aria-label={`Request refund for payment ${payment.feeDetails.feeType}`}
                       >
                         Request Refund
                       </button>
@@ -246,76 +345,63 @@ function StudentDashboard() {
                 <button
                   onClick={() => navigate('/payments')}
                   style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                  className="mt-4 px-4 py-2 rounded-md hover:bg-blue-800"
+                  className="mt-4 px-4 py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${primaryColor}]"
                   aria-label="View full list of payments"
                 >
                   View Full List
                 </button>
               </div>
             ) : (
-              <p style={{ color: COLORS.textSecondary }} className="text-sm">No payments found.</p>
+              <p style={{ color: COLORS.textSecondary }} className="text-sm">
+                No payments found.
+              </p>
             )}
           </div>
 
-          <div style={{ backgroundColor: COLORS.cardBackground, borderColor: COLORS.border }} className="p-6 rounded-lg shadow-md border sm:col-span-2">
+          <div style={{ backgroundColor: COLORS.cardBackground, borderColor: COLORS.border }} className="p-6 rounded-lg shadow-md border">
             <h3 style={{ color: COLORS.primary }} className="text-xl font-semibold mb-4 flex items-center">
               <DocumentTextIcon className="h-6 w-6 mr-2" />
-              Fee Assignments
+              Receipts
             </h3>
-            {dashboardData?.feeAssignments?.length ? (
+            {dashboardData?.receipts.length ? (
               <div className="grid grid-cols-1 gap-4">
-                {dashboardData.feeAssignments.slice(0, 4).map((assignment) => (
+                {dashboardData.receipts.slice(0, 4).map((receipt) => (
                   <div
-                    key={assignment._id}
+                    key={receipt._id}
                     style={{ backgroundColor: COLORS.white }}
                     className="p-4 rounded-md shadow-sm hover:shadow-lg transition-transform"
                   >
-                    <p style={{ color: COLORS.textPrimary }} className="font-semibold">{assignment.feeId.feeType}</p>
-                    <p style={{ color: COLORS.textPrimary }}>${assignment.amountDue}</p>
-                    <p style={{ color: COLORS.textPrimary }}>${assignment.amountPaid} Paid</p>
+                    <p style={{ color: COLORS.textPrimary }} className="font-semibold">
+                      {receipt.receiptNumber}
+                    </p>
+                    <p style={{ color: COLORS.textPrimary }}>${receipt.amount}</p>
                     <p style={{ color: COLORS.textSecondary }} className="text-sm">
-                      {new Date(assignment.feeId.dueDate).toLocaleDateString()}
+                      {new Date(receipt.date).toLocaleDateString()}
                     </p>
-                    <p style={{ color: COLORS.textSecondary }} className="text-sm">{assignment.feeId.academicSession}</p>
-                    <p
-                      style={{ backgroundColor: statusColors[assignment.status], color: COLORS.white }}
-                      className="text-sm px-2 py-1 rounded-full inline-block mt-2"
+                    <a
+                      href={receipt.pdfUrl}
+                      target="_blank"
+                      style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
+                      className="mt-2 px-3 py-1 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${primaryColor}]"
+                      aria-label={`View receipt ${receipt.receiptNumber}`}
                     >
-                      {assignment.status}
-                    </p>
-                    <div className="flex space-x-2 mt-2">
-                      <button
-                        onClick={() => navigate(`/fee-assignments/${assignment._id}`)}
-                        style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                        className="px-3 py-1 rounded-md hover:bg-blue-800"
-                        aria-label={`View details for ${assignment.feeId.feeType}`}
-                      >
-                        View Details
-                      </button>
-                      {(assignment.status === 'assigned' || assignment.status === 'partially_paid') && (
-                        <button
-                          onClick={() => navigate('/payments')}
-                          style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                          className="px-3 py-1 rounded-md hover:bg-blue-800"
-                          aria-label={`Pay for ${assignment.feeId.feeType}`}
-                        >
-                          Pay Now
-                        </button>
-                      )}
-                    </div>
+                      View PDF
+                    </a>
                   </div>
                 ))}
                 <button
-                  onClick={() => navigate('/fee-assignments')}
+                  onClick={() => navigate('/receipts')}
                   style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                  className="mt-4 px-4 py-2 rounded-md hover:bg-blue-800"
-                  aria-label="View full list of fee assignments"
+                  className="mt-4 px-4 py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${primaryColor}]"
+                  aria-label="View full list of receipts"
                 >
                   View Full List
                 </button>
               </div>
             ) : (
-              <p style={{ color: COLORS.textSecondary }} className="text-sm">No fee assignments found.</p>
+              <p style={{ color: COLORS.textSecondary }} className="text-sm">
+                No receipts found.
+              </p>
             )}
           </div>
         </div>
@@ -331,13 +417,17 @@ function StudentDashboard() {
               className="p-6 rounded-lg shadow-xl w-full max-w-md transform transition-transform duration-300 translate-y-0"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 style={{ color: COLORS.textPrimary }} className="text-xl font-semibold mb-4">Confirm Logout</h3>
-              <p style={{ color: COLORS.textSecondary }} className="mb-6">Are you sure you want to log out?</p>
+              <h3 style={{ color: COLORS.textPrimary }} className="text-xl font-semibold mb-4">
+                Confirm Logout
+              </h3>
+              <p style={{ color: COLORS.textSecondary }} className="mb-6">
+                Are you sure you want to log out?
+              </p>
               <div className="flex justify-end space-x-4">
                 <button
                   onClick={handleModalCancel}
                   style={{ backgroundColor: '#d1d5db', color: COLORS.black }}
-                  className="px-4 py-2 rounded-md hover:bg-gray-400"
+                  className="px-4 py-2 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
                   aria-label="Cancel logout"
                 >
                   Cancel
@@ -345,7 +435,7 @@ function StudentDashboard() {
                 <button
                   onClick={handleModalConfirm}
                   style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                  className="px-4 py-2 rounded-md hover:bg-blue-800"
+                  className="px-4 py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${primaryColor}]"
                   aria-label="Confirm logout"
                 >
                   Confirm

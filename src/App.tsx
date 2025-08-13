@@ -9,6 +9,7 @@ import { useStudentAppContext } from "./context/StudentAppContext";
 import COLORS from "./constants/colors";
 import StudentMainLayout from "./components/StudentMainLayout";
 import NotFound from "./pages/NotFound";
+import  Payment from "./pages/payment";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useStudentAppContext();
@@ -55,7 +56,7 @@ function App() {
           element={
             <ProtectedRoute>
               <StudentMainLayout>
-                <NotFound />
+                <Payment/>
               </StudentMainLayout>
             </ProtectedRoute>
           }
