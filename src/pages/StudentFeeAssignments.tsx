@@ -69,7 +69,7 @@ function StudentFeeAssignments() {
       setFeeAssignments(response.data.feeAssignments);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load fee assignments');
-      toast.error(err.response?.data?.message || 'Failed to load fee assignments');
+      // toast.error(err.response?.data?.message || 'Failed to load fee assignments');
       if (err.response?.status === 401) navigate('/login');
     } finally {
       setIsLoading(false);

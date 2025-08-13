@@ -203,7 +203,7 @@ function StudentDashboard() {
                     style={{ backgroundColor: COLORS.white }}
                     className="p-4 rounded-md shadow-sm hover:shadow-lg transition-transform"
                   >
-                    <p style={{ color: COLORS.textPrimary }} className="font-semibold">{payment.fee.feeType}</p>
+                    <p style={{ color: COLORS.textPrimary }} className="font-semibold">{payment?.fee?.feeType}</p>
                     <p style={{ color: COLORS.textPrimary }}>${payment.amount}</p>
                     <p style={{ color: COLORS.textSecondary }} className="text-sm">{payment.paymentProvider}</p>
                     <p
@@ -233,7 +233,7 @@ function StudentDashboard() {
                         }}
                         className={`px-3 py-1 rounded-md ${payment.status === 'confirmed' ? 'hover:bg-blue-800' : 'cursor-not-allowed'}`}
                         disabled={payment.status !== 'confirmed'}
-                        aria-label={`Initiate refund for ${payment.fee.feeType}`}
+                        aria-label={`Initiate refund for ${payment?.fee?.feeType}`}
                       >
                         Request Refund
                       </button>
