@@ -9,6 +9,8 @@ import NotFound from "./pages/NotFound";
 import  Payment from "./pages/payment";
 import LoadingScreen from "./components/LoadingScreen";
 import COLORS from "./constants/colors";
+import RefundForm from "./pages/refund";
+//import ThreeColumnRefund from "./pages/refund";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useStudentAppContext();
@@ -67,6 +69,16 @@ function App() {
             <ProtectedRoute>
               <StudentMainLayout>
                 <Payment/>
+              </StudentMainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/refunds"
+          element={
+            <ProtectedRoute>
+              <StudentMainLayout>
+                <RefundForm/>
               </StudentMainLayout>
             </ProtectedRoute>
           }
