@@ -198,7 +198,9 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
 
   const value: AppContextType = {
     user,
+    setUser,
     isAuthenticated,
+    setIsAuthenticated,
     error,
     loading,
     login,
