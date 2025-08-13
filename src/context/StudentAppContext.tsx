@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { env } from '../env';
 
 interface User {
@@ -29,7 +29,7 @@ const StudentAppContext = createContext<AppContextType | undefined>(undefined);
 
 export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
   const BASE_URL = `${env.VITE_SERVER_URL}/api/v1`;
-  const CURRENCY = 'GH₵'
+  const CURRENCY = 'GH₵';
 
   const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('studentUser');
@@ -38,8 +38,9 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Initialize as true
   const navigate = useNavigate();
+  const location = useLocation();
 
   const sanitizeInput = (input: string): string => {
     return input ? input.replace(/[<>"'%;()&]/g, '') : '';
@@ -57,26 +58,31 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem('studentUser');
         localStorage.removeItem('studentToken');
         localStorage.removeItem('studentRefreshToken');
+        navigate('/login', { state: { from: location.pathname }, replace: true });
         return;
       }
       const response = await axios.get(`${BASE_URL}/students/check-auth`, {
         headers: { Authorization: `Bearer ${sanitizeInput(accessToken)}` },
       });
-      const { data } = response.data;
-      if (!data.id || !data.email) {
+      const { user, accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
+      if (!user._id || !user.email) {
         throw new Error('Invalid auth response');
       }
       setUser({
-        _id: data.id,
-        email: data.email,
-        name: data.name,
-        studentId: data.studentId,
-        department: data.department,
-        yearOfStudy: data.yearOfStudy,
-        courses: data.courses || [],
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+        studentId: user.studentId,
+        department: user.department,
+        yearOfStudy: user.yearOfStudy,
+        courses: user.courses || [],
       });
+      localStorage.setItem('studentToken', sanitizeInput(newAccessToken));
+      localStorage.setItem('studentRefreshToken', sanitizeInput(newRefreshToken));
+      localStorage.setItem('studentUser', JSON.stringify(user));
       setIsAuthenticated(true);
-      navigate('/dashboard');
+      const redirectTo = location.state?.from || '/dashboard';
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       console.log({
         event: 'student_check_auth_error',
@@ -90,8 +96,7 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem('studentUser');
       localStorage.removeItem('studentToken');
       localStorage.removeItem('studentRefreshToken');
-      toast.error('Session expired. Please log in again.');
-      navigate('/login');
+      navigate('/login', { state: { from: location.pathname }, replace: true });
     } finally {
       setLoading(false);
     }
@@ -122,7 +127,8 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
         isLoading: false,
         autoClose: 3000,
       });
-      navigate('/dashboard');
+      const redirectTo = location.state?.from || '/dashboard';
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       console.log({
         event: 'student_login_error',
@@ -169,7 +175,7 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
         isLoading: false,
         autoClose: 3000,
       });
-      navigate('/login');
+      navigate('/login', { replace: true });
     } catch (err) {
       console.log({
         event: 'student_logout_error',
@@ -192,15 +198,14 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
 
   const value: AppContextType = {
     user,
+    setUser,
     isAuthenticated,
+    setIsAuthenticated,
     error,
     loading,
     login,
     logout,
     checkAuth,
-    setUser,
-    setIsAuthenticated,
-    CURRENCY,
   };
 
   return <StudentAppContext.Provider value={value}>{children}</StudentAppContext.Provider>;

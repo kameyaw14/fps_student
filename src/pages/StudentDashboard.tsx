@@ -280,15 +280,7 @@ function StudentDashboard() {
                     style={{ backgroundColor: COLORS.white }}
                     className="p-4 rounded-md shadow-sm hover:shadow-lg transition-transform group"
                   >
-                    <p style={{ color: COLORS.textPrimary }} className="relative">
-                      <span className="truncate">{payment.feeDetails.feeType}</span>
-                      <span
-                        style={{ backgroundColor: COLORS.white }}
-                        className="absolute left-0 top-0 hidden group-hover:block shadow-md p-2 rounded-md z-50 max-w-full"
-                      >
-                        {payment.feeDetails.feeType}
-                      </span>
-                    </p>
+                    <p style={{ color: COLORS.textPrimary }} className="font-semibold">{payment?.fee?.feeType}</p>
                     <p style={{ color: COLORS.textPrimary }}>${payment.amount}</p>
                     <p style={{ color: COLORS.textSecondary }} className="text-sm">
                       {payment.feeDetails.academicSession}
@@ -332,7 +324,7 @@ function StudentDashboard() {
                           payment.status === 'confirmed' ? 'hover:bg-blue-800' : 'cursor-not-allowed'
                         }`}
                         disabled={payment.status !== 'confirmed'}
-                        aria-label={`Request refund for payment ${payment.feeDetails.feeType}`}
+                        aria-label={`Initiate refund for ${payment?.fee?.feeType}`}
                       >
                         Request Refund
                       </button>
