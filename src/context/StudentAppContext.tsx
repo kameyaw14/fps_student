@@ -206,6 +206,7 @@ export const StudentAppProvider = ({ children }: { children: ReactNode }) => {
     login,
     logout,
     checkAuth,
+    CURRENCY,
   };
 
   return <StudentAppContext.Provider value={value}>{children}</StudentAppContext.Provider>;
