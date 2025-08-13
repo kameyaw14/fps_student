@@ -6,6 +6,7 @@ import StudentFeeAssignments from "./pages/StudentFeeAssignments";
 import StudentFeeAssignmentDetails from "./pages/StudentFeeAssignmentDetails";
 import StudentMainLayout from "./components/StudentMainLayout";
 import NotFound from "./pages/NotFound";
+import  Payment from "./pages/payment";
 import LoadingScreen from "./components/LoadingScreen";
 import COLORS from "./constants/colors";
 
@@ -65,7 +66,7 @@ function App() {
           element={
             <ProtectedRoute>
               <StudentMainLayout>
-                <NotFound />
+                <Payment/>
               </StudentMainLayout>
             </ProtectedRoute>
           }
