@@ -402,14 +402,7 @@ function StudentDashboard() {
                     </a> */}
                   </div>
                 ))}
-                <button
-                  onClick={() => navigate('/receipts')}
-                  style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                  className="mt-4 px-4 py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${primaryColor}]"
-                  aria-label="View full list of receipts"
-                >
-                  View Full List
-                </button>
+                
               </div>
             ) : (
               <p style={{ color: COLORS.textSecondary }} className="text-sm">
