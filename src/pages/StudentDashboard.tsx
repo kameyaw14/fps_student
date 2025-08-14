@@ -206,9 +206,15 @@ function StudentDashboard() {
     <div style={{ backgroundColor: COLORS.background }} className="min-h-screen py-12 px-4">
       <div className="max-w-7xl mx-auto relative">
         {/* CHANGE: Made BellIcon navigate to notifications with unread count */}
+        <div className='flex justify-between'>
+        
+
+        <h2 style={{ color: COLORS.primary }} className="text-3xl font-bold mb-8 text-center">
+          FPS Student Dashboard - {dashboardData?.student.name || user?.name || 'Student'}
+        </h2>
         <button
           onClick={() => navigate('/notifications')}
-          className="absolute top-0 right-0 p-2 rounded-full hover:bg-gray-200 relative"
+          className=" p-2 rounded-full hover:bg-gray-200 relative mb-10"
           style={{ color: COLORS.primary }}
           aria-label="View notifications"
         >
@@ -222,9 +228,7 @@ function StudentDashboard() {
             </span>
           )}
         </button>
-        <h2 style={{ color: COLORS.primary }} className="text-3xl font-bold mb-8 text-center">
-          FPS Student Dashboard - {dashboardData?.student.name || user?.name || 'Student'}
-        </h2>
+        </div>
 
         {error && (
           <div className="mb-6 text-center">

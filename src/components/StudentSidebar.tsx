@@ -53,7 +53,6 @@ const StudentSidebar: React.FC<SidebarProps> = ({ onLogout }) => {
     { path: '/dashboard', label: 'Dashboard', icon: HomeIcon },
     { path: '/fee-assignments', label: 'My Fees', icon: DocumentTextIcon },
     { path: '/payments', label: 'Payments', icon: CurrencyDollarIcon },
-    { path: '/receipts', label: 'Receipts', icon: DocumentTextIcon },
     { path: '/refunds', label: 'Refunds', icon: ArrowPathIcon },
     {
       label: 'Logout',
