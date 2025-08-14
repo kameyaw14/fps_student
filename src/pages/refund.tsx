@@ -155,8 +155,11 @@ const RefundPage: React.FC = () => {
           </h3>
           <form onSubmit={handleRefundSubmit} className="space-y-4">
             <div>
-              <label style={{ color: COLORS.textPrimary }} className="block mb-1">
+              <label style={{ color: COLORS.textPrimary }} className="block font-bold mb-1">
                 Amount (GHS)
+              </label>
+              <label style={{ color: COLORS.textPrimary }} className="block mb-1 font-light">
+                Note: Refunds requested after 24hrs of payment may not be processed. You may contact your school admin for assistance.
               </label>
               <input
                 type="number"
@@ -171,7 +174,7 @@ const RefundPage: React.FC = () => {
               />
             </div>
             <div>
-              <label style={{ color: COLORS.textPrimary }} className="block mb-1">
+              <label style={{ color: COLORS.textPrimary }} className="block font-bold mb-1">
                 Reason
               </label>
               <textarea
