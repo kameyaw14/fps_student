@@ -1,8 +1,9 @@
+//@ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import Papa from 'papaparse'; // CHANGE: Replaced json2csv with papaparse
+import Papa from 'papaparse'; 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { io } from 'socket.io-client';

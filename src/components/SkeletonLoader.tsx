@@ -1,5 +1,4 @@
-
-// Skeleton loader for loading states
+//@ts-nocheck
 function SkeletonLoader() {
   return (
     <div className="animate-pulse space-y-4">

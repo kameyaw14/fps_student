@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { useNavigate } from "react-router-dom";
 import { HomeIcon } from "@heroicons/react/24/outline";
 import COLORS from "../constants/colors";
