@@ -1,4 +1,4 @@
-//@ts-nocheck
+
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useStudentAppContext } from "./context/StudentAppContext";
 import StudentLogin from "./pages/StudentLogin";
@@ -12,6 +12,8 @@ import LoadingScreen from "./components/LoadingScreen";
 import COLORS from "./constants/colors";
 import RefundForm from "./pages/refund";
 //import ThreeColumnRefund from "./pages/refund";
+import StudentNotifications from "./pages/StudentNotifications";
+
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useStudentAppContext();
@@ -100,6 +102,16 @@ function App() {
             <ProtectedRoute>
               <StudentMainLayout>
                 <NotFound />
+              </StudentMainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <StudentMainLayout>
+                <StudentNotifications />
               </StudentMainLayout>
             </ProtectedRoute>
           }

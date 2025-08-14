@@ -1,9 +1,10 @@
-// @ts-nocheck
+//@ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import validator from 'validator';
 import { toast } from 'react-toastify';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { useStudentAppContext } from '../context/StudentAppContext';
 import { env } from '../env';
@@ -27,6 +28,7 @@ function StudentLogin() {
   const [errors, setErrors] = useState<Errors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [retryTimer, setRetryTimer] = useState<number | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const { setUser, setIsAuthenticated } = useStudentAppContext();
   const navigate = useNavigate();
 
@@ -132,71 +134,133 @@ function StudentLogin() {
     }
   };
 
+  const toggleShowPassword = () => {
+    setShowPassword((prev) => !prev);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 style={{ color: COLORS.primary }} className="text-3xl font-bold mb-6 text-center">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: COLORS.background }}>
+      {/* Gradient Overlay for Busy Look */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-100/50 via-transparent to-blue-200/50 z-0" />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 transform transition-all duration-500 ease-in-out hover:scale-[1.02] z-10">
+        {/* Logo Placeholder */}
+        <div className="flex justify-center mb-6">
+          <div className="h-16 w-16 rounded-full bg-gradient-to-r from-[#1976D2] to-blue-800 flex items-center justify-center text-white font-bold text-2xl">
+            FPS
+          </div>
+        </div>
+        <h2
+          style={{ color: COLORS.primary }}
+          className="text-4xl font-extrabold mb-4 text-center animate-fade-in"
+        >
           Student Login
         </h2>
+        <p
+          style={{ color: COLORS.textSecondary }}
+          className="text-center mb-8 text-sm font-medium"
+        >
+          Access your Fee Payment System account
+        </p>
         {isLoading ? (
           <SkeletonLoader />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label style={{ color: COLORS.textPrimary }} className="block text-sm font-medium mb-2" htmlFor="email">
+              <label
+                style={{ color: COLORS.textPrimary }}
+                className="block text-sm font-semibold mb-2"
+                htmlFor="email"
+              >
                 Email
               </label>
-              <input
-                type="email"
-                name="email"
-                id="email"
-                value={formData.email}
-                onChange={handleChange}
-                style={{ borderColor: COLORS.border }}
-                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#1976D2]"
-                placeholder="Enter email"
-                disabled={retryTimer !== null}
-                maxLength={255}
-                aria-label="Email"
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  name="email"
+                  id="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  style={{
+                    borderColor: COLORS.border,
+                    backgroundColor: COLORS.inputBackground,
+                  }}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1976D2] transition-all duration-300 placeholder:text-[#767676]"
+                  placeholder="Enter your email"
+                  disabled={retryTimer !== null}
+                  maxLength={255}
+                  aria-label="Email"
+                />
+              </div>
               {errors.email && (
-                <p style={{ color: '#dc2626' }} className="mt-1 text-sm">{errors.email}</p>
+                <p style={{ color: '#dc2626' }} className="mt-2 text-sm animate-pulse">
+                  {errors.email}
+                </p>
               )}
             </div>
             <div>
-              <label style={{ color: COLORS.textPrimary }} className="block text-sm font-medium mb-2" htmlFor="password">
+              <label
+                style={{ color: COLORS.textPrimary }}
+                className="block text-sm font-semibold mb-2"
+                htmlFor="password"
+              >
                 Password
               </label>
-              <input
-                type="password"
-                name="password"
-                id="password"
-                value={formData.password}
-                onChange={handleChange}
-                style={{ borderColor: COLORS.border }}
-                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#1976D2]"
-                placeholder="Enter password"
-                disabled={retryTimer !== null}
-                maxLength={128}
-                aria-label="Password"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  id="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  style={{
+                    borderColor: COLORS.border,
+                    backgroundColor: COLORS.inputBackground,
+                  }}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1976D2] transition-all duration-300 placeholder:text-[#767676]"
+                  placeholder="Enter your password"
+                  disabled={retryTimer !== null}
+                  maxLength={128}
+                  aria-label="Password"
+                />
+                <button
+                  type="button"
+                  onClick={toggleShowPassword}
+                  className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-[#1976D2] focus:outline-none"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-checked={showPassword}
+                >
+                  {showPassword ? (
+                    <EyeSlashIcon className="h-5 w-5" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
               {errors.password && (
-                <p style={{ color: '#dc2626' }} className="mt-1 text-sm">{errors.password}</p>
+                <p style={{ color: '#dc2626' }} className="mt-2 text-sm animate-pulse">
+                  {errors.password}
+                </p>
               )}
             </div>
             <div>
               <button
                 type="submit"
                 style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                className="w-full py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[#1976D2] disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="w-full py-3 rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[#1976D2] disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105"
                 disabled={isLoading || retryTimer !== null}
-                aria-label="Login"
+                aria-label={retryTimer !== null ? `Retry in ${retryTimer}s` : 'Login'}
               >
                 {retryTimer !== null ? `Retry in ${retryTimer}s` : 'Login'}
               </button>
             </div>
-            <div style={{ color: COLORS.textSecondary }} className="text-sm text-center space-y-2">
+            <div
+              style={{ color: COLORS.textSecondary }}
+              className="text-sm text-center space-y-2"
+            >
               <p>Contact your school admin to create an account.</p>
+              <p className="text-xs italic">
+                Powered by Fee Payment System &copy; {new Date().getFullYear()}
+              </p>
             </div>
           </form>
         )}

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -16,6 +15,7 @@ import { env } from '../env';
 import SkeletonLoader from '../components/SkeletonLoader';
 import COLORS from '../constants/colors';
 import { ChartPieIcon } from 'lucide-react';
+import { io } from 'socket.io-client'; // CHANGE: Added socket.io-client
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -63,22 +63,32 @@ interface DashboardData {
 const isValidHexColor = (color: string) => /^#[0-9A-F]{6}$/i.test(color);
 
 function StudentDashboard() {
-  const { user, isAuthenticated, logout } = useStudentAppContext();
+  const { user, isAuthenticated, logout, CURRENCY } = useStudentAppContext();
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // CHANGE: Added unreadCount state
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const accessToken = localStorage.getItem('studentToken');
-      const response = await axios.get(`${env.VITE_SERVER_URL}/api/v1/students/dashboard`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      setDashboardData(response.data.data);
+      // CHANGE: Fetch dashboard data and unread notification count
+      const [dashboardResponse, notificationsResponse] = await Promise.all([
+        axios.get(`${env.VITE_SERVER_URL}/api/v1/students/dashboard`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }),
+        axios.get(`${env.VITE_SERVER_URL}/api/v1/students/notifications`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { limit: 0 }, // Only need unread count
+        }),
+      ]);
+      setDashboardData(dashboardResponse.data.data);
+      setUnreadCount(notificationsResponse.data.unreadCount);
     } catch (err) {
       console.log({
         event: 'student_dashboard_fetch_error',
@@ -95,17 +105,44 @@ function StudentDashboard() {
     }
   };
 
+  // CHANGE: Added WebSocket setup for real-time notifications
   useEffect(() => {
     if (!isAuthenticated || !user?._id) {
       navigate('/login');
-    } else {
-      fetchDashboardData();
+      return;
     }
-  }, [isAuthenticated, user, navigate]);
 
-  useEffect(() => {
-    return () => setIsModalOpen(false); // Reset modal on unmount
-  }, []);
+    fetchDashboardData();
+
+    const socket = io(env.VITE_SERVER_URL, {
+      auth: { token: `Bearer ${localStorage.getItem('studentToken')}` },
+    });
+
+    socket.on('connect', () => {
+      console.log('Connected to WebSocket');
+    });
+
+    socket.on('new_notification', () => {
+      // Fetch updated unread count
+      axios
+        .get(`${env.VITE_SERVER_URL}/api/v1/students/notifications`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('studentToken')}` },
+          params: { limit: 0 },
+        })
+        .then((response) => {
+          setUnreadCount(response.data.unreadCount);
+          toast.info('New notification received!');
+        });
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('WebSocket connection error:', err);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [isAuthenticated, user, navigate]);
 
   const handleLogout = async () => {
     try {
@@ -130,12 +167,9 @@ function StudentDashboard() {
     setIsModalOpen(false);
   };
 
-  const handleActionClick = () => {
-    toast.info('Feature coming soon');
-  };
-
+  // CHANGE: Removed handleActionClick, made BellIcon navigate to notifications
   const paymentStatusData = {
-    labels: ['Pending', 'Confirmed', 'Rejected', 'Total Amount ($)' ],
+    labels: ['Pending', 'Confirmed', 'Rejected', `Total Amount ${CURRENCY}`],
     datasets: [
       {
         data: [
@@ -171,13 +205,22 @@ function StudentDashboard() {
   return (
     <div style={{ backgroundColor: COLORS.background }} className="min-h-screen py-12 px-4">
       <div className="max-w-7xl mx-auto relative">
+        {/* CHANGE: Made BellIcon navigate to notifications with unread count */}
         <button
-          onClick={handleActionClick}
-          className="absolute top-0 right-0 p-2 rounded-full hover:bg-gray-200"
+          onClick={() => navigate('/notifications')}
+          className="absolute top-0 right-0 p-2 rounded-full hover:bg-gray-200 relative"
           style={{ color: COLORS.primary }}
           aria-label="View notifications"
         >
           <BellIcon className="h-6 w-6" />
+          {unreadCount > 0 && (
+            <span
+              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full px-2 py-1 text-xs"
+              style={{ backgroundColor: '#ef4444' }}
+            >
+              {unreadCount}
+            </span>
+          )}
         </button>
         <h2 style={{ color: COLORS.primary }} className="text-3xl font-bold mb-8 text-center">
           FPS Student Dashboard - {dashboardData?.student.name || user?.name || 'Student'}
@@ -237,14 +280,6 @@ function StudentDashboard() {
                   {dashboardData?.student.courses.join(', ') || 'None'}
                 </span>
               </p>
-              <button
-                onClick={() => navigate('/courses')}
-                style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                className="mt-2 px-3 py-1 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[${primaryColor}]"
-                aria-label="View courses"
-              >
-                View Courses
-              </button>
             </div>
           </div>
 
@@ -280,8 +315,8 @@ function StudentDashboard() {
                     style={{ backgroundColor: COLORS.white }}
                     className="p-4 rounded-md shadow-sm hover:shadow-lg transition-transform group"
                   >
-                    <p style={{ color: COLORS.textPrimary }} className="font-semibold">{payment?.fee?.feeType}</p>
-                    <p style={{ color: COLORS.textPrimary }}>${payment.amount}</p>
+                    <p style={{ color: COLORS.textPrimary }} className="font-semibold">{payment?.feeDetails.feeType}</p>
+                    <p style={{ color: COLORS.textPrimary }}>{CURRENCY}{payment.amount}</p>
                     <p style={{ color: COLORS.textSecondary }} className="text-sm">
                       {payment.feeDetails.academicSession}
                     </p>
@@ -297,10 +332,10 @@ function StudentDashboard() {
                           ? 'text-green-500'
                           : payment.status === 'pending'
                           ? 'text-yellow-500'
-                          : 'text-red-500'
+                          : 'text-green-500'
                       }`}
                     >
-                      {payment.status}
+                      {payment.status === "initiated" ? "confirmed":payment.status }
                     </p>
                     <div className="flex space-x-2 mt-2">
                       {payment.receiptUrl && (
@@ -314,20 +349,6 @@ function StudentDashboard() {
                           View Receipt
                         </a>
                       )}
-                      <button
-                        onClick={() => navigate('/refunds')}
-                        style={{
-                          backgroundColor: payment.status === 'confirmed' ? COLORS.primary : '#9ca3af',
-                          color: COLORS.white,
-                        }}
-                        className={`px-3 py-1 rounded-md ${
-                          payment.status === 'confirmed' ? 'hover:bg-blue-800' : 'cursor-not-allowed'
-                        }`}
-                        disabled={payment.status !== 'confirmed'}
-                        aria-label={`Initiate refund for ${payment?.fee?.feeType}`}
-                      >
-                        Request Refund
-                      </button>
                     </div>
                     <p style={{ color: COLORS.textSecondary }} className="text-sm mt-2">
                       {new Date(payment.createdAt).toLocaleDateString()}
@@ -353,7 +374,7 @@ function StudentDashboard() {
           <div style={{ backgroundColor: COLORS.cardBackground, borderColor: COLORS.border }} className="p-6 rounded-lg shadow-md border">
             <h3 style={{ color: COLORS.primary }} className="text-xl font-semibold mb-4 flex items-center">
               <DocumentTextIcon className="h-6 w-6 mr-2" />
-              Receipts
+              Recent Receipts
             </h3>
             {dashboardData?.receipts.length ? (
               <div className="grid grid-cols-1 gap-4">
@@ -366,11 +387,11 @@ function StudentDashboard() {
                     <p style={{ color: COLORS.textPrimary }} className="font-semibold">
                       {receipt.receiptNumber}
                     </p>
-                    <p style={{ color: COLORS.textPrimary }}>${receipt.amount}</p>
+                    <p style={{ color: COLORS.textPrimary }}>{CURRENCY}{receipt.amount}</p>
                     <p style={{ color: COLORS.textSecondary }} className="text-sm">
                       {new Date(receipt.date).toLocaleDateString()}
                     </p>
-                    <a
+                    {/* <a
                       href={receipt.pdfUrl}
                       target="_blank"
                       style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
@@ -378,7 +399,7 @@ function StudentDashboard() {
                       aria-label={`View receipt ${receipt.receiptNumber}`}
                     >
                       View PDF
-                    </a>
+                    </a> */}
                   </div>
                 ))}
                 <button
